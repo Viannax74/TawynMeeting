@@ -1,0 +1,3 @@
+venv-audio\Scripts\activate.bat
+
+python transcripteur_v2.py

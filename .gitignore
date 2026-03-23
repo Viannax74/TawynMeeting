@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 venv-audio/
+
+# Données de sessions (audio, JSON, rapports) — ne pas versionner
+sessions/
+test/
