@@ -8,14 +8,17 @@ import requests
 import torch
 import whisperx
 from whisperx.diarize import DiarizationPipeline
+from pathlib import Path
+from dotenv import load_dotenv
 import torchaudio
 torchaudio.set_audio_backend("soundfile")  # Fallback anti-torchcodec Windows
 
 # =========================================================
-# CONFIGURATION — MODIFIER CES 2 VALEURS UNIQUEMENT
+# CONFIGURATION — via .env (jamais hardcoder ces valeurs)
 # =========================================================
-HF_TOKEN     = "VOTRE_CLE_HF_ICI"         # https://huggingface.co/settings/tokens
-OLLAMA_MODEL = "qwen3.5:27b-q4_K_M"        # Modèle installé via ollama pull
+load_dotenv()
+HF_TOKEN     = os.getenv("HF_TOKEN", "")           # https://huggingface.co/settings/tokens
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:27b-q4_K_M")
 
 # =========================================================
 # CONFIG TECHNIQUE (ne pas toucher sauf si VRAM < 16GB)
@@ -29,7 +32,8 @@ LANGUE       = "fr"   # Forcer le français — évite les erreurs d'alignement
 # =========================================================
 # OPTIMISATION TOKENS — Phase 1 (24/03/2026)
 # Baseline mesurée : APEC 1 = 15804 mots / ~20545 tokens
-# Après troncature : 12000 mots / ~15600 tokens (-24%)
+# Troncature désactivée (max_mots=99999) — qualité CR prioritaire
+# Réactiver avec max_mots=12000 si VRAM insuffisante
 # =========================================================
 
 def tronquer_transcript(text, max_mots=12000, ratio_debut=0.45, ratio_fin=0.45):
@@ -141,62 +145,74 @@ if not os.path.exists(fichier_audio):
     print("❌ Fichier introuvable.")
     sys.exit(1)
 
-nom_base  = os.path.splitext(fichier_audio)[0]
+nom_base   = os.path.splitext(fichier_audio)[0]
+json_file  = nom_base + "_brut.json"
 start_time = time.time()
 
 # =========================================================
-# BLOC 1 — TRANSCRIPTION + ALIGNEMENT + DIARISATION
-# (WhisperX occupe ~5-6GB VRAM)
+# B5 — Checkpoint : skip WhisperX si JSON déjà présent
 # =========================================================
+if Path(json_file).exists():
+    print(f"\n✅ JSON existant trouvé : {json_file}")
+    print("   WhisperX skippé — passage direct à l'analyse LLM.")
+    with open(json_file, encoding="utf-8-sig") as f:
+        result = {"segments": json.load(f)}
+    speakers = {seg.get("speaker", "") for seg in result["segments"] if seg.get("speaker")}
+    print(f"📊 Locuteurs : {len(speakers)} ({', '.join(sorted(speakers))})")
+    print(f"⏱️  Durée analysée : {result['segments'][-1]['end']:.0f}s")
+else:
+    # =========================================================
+    # BLOC 1 — TRANSCRIPTION + ALIGNEMENT + DIARISATION
+    # (WhisperX occupe ~5-6GB VRAM)
+    # =========================================================
 
-# ── 1/3 : TRANSCRIPTION ───────────────────────────────────
-print("\n🧠 [1/3] Transcription en cours...")
-model = whisperx.load_model("large-v3", DEVICE, compute_type=COMPUTE_TYPE)
-audio = whisperx.load_audio(fichier_audio)  # Gère M4A / WAV / MP3 natif
-result = model.transcribe(audio, batch_size=BATCH_SIZE, language=LANGUE)
-print(f"   ✅ Langue détectée : {result['language']} — {len(result['segments'])} segments")
+    # ── 1/3 : TRANSCRIPTION ───────────────────────────────────
+    print("\n🧠 [1/3] Transcription en cours...")
+    model = whisperx.load_model("large-v3", DEVICE, compute_type=COMPUTE_TYPE)
+    audio = whisperx.load_audio(fichier_audio)  # Gère M4A / WAV / MP3 natif
+    result = model.transcribe(audio, batch_size=BATCH_SIZE, language=LANGUE)
+    print(f"   ✅ Langue détectée : {result['language']} — {len(result['segments'])} segments")
 
-# ── 2/3 : ALIGNEMENT MOT PAR MOT ─────────────────────────
-print("⏱️  [2/3] Alignement chirurgical mot par mot...")
-model_a, metadata = whisperx.load_align_model(
-    language_code=result["language"], device=DEVICE
-)
-result = whisperx.align(
-    result["segments"], model_a, metadata, audio, DEVICE,
-    return_char_alignments=False
-)
+    # ── 2/3 : ALIGNEMENT MOT PAR MOT ─────────────────────────
+    print("⏱️  [2/3] Alignement chirurgical mot par mot...")
+    model_a, metadata = whisperx.load_align_model(
+        language_code=result["language"], device=DEVICE
+    )
+    result = whisperx.align(
+        result["segments"], model_a, metadata, audio, DEVICE,
+        return_char_alignments=False
+    )
 
-# ── 3/3 : DIARISATION ────────────────────────────────────
-print("👥 [3/3] Identification des locuteurs (Pyannote)...")
-diarize_model = DiarizationPipeline(token=HF_TOKEN, device=DEVICE)
-diarize_segments = diarize_model(audio)
+    # ── 3/3 : DIARISATION ────────────────────────────────────
+    print("👥 [3/3] Identification des locuteurs (Pyannote)...")
+    diarize_model = DiarizationPipeline(token=HF_TOKEN, device=DEVICE)
+    diarize_segments = diarize_model(audio)
 
-print("🔗 Fusion transcription + locuteurs...")
-result = whisperx.assign_word_speakers(diarize_segments, result)
+    print("🔗 Fusion transcription + locuteurs...")
+    result = whisperx.assign_word_speakers(diarize_segments, result)
 
-# ── EXPORT JSON "SOURCE DE VÉRITÉ" ────────────────────────
-json_file = nom_base + "_brut.json"
-with open(json_file, "w", encoding="utf-8") as f:
-    json.dump(result["segments"], f, ensure_ascii=False, indent=2)
-print(f"💾 JSON sauvegardé : {json_file}")
+    # ── EXPORT JSON "SOURCE DE VÉRITÉ" ────────────────────────
+    with open(json_file, "w", encoding="utf-8-sig") as f:
+        json.dump(result["segments"], f, ensure_ascii=False, indent=2)
+    print(f"💾 JSON sauvegardé : {json_file}")
 
-# ── STATISTIQUES RAPIDES ──────────────────────────────────
-speakers = set()
-for seg in result["segments"]:
-    if "speaker" in seg:
-        speakers.add(seg["speaker"])
-print(f"📊 Locuteurs détectés : {len(speakers)} ({', '.join(sorted(speakers))})")
-print(f"⏱️  Durée analysée : {result['segments'][-1]['end']:.0f}s")
+    # ── STATISTIQUES RAPIDES ──────────────────────────────────
+    speakers = set()
+    for seg in result["segments"]:
+        if "speaker" in seg:
+            speakers.add(seg["speaker"])
+    print(f"📊 Locuteurs détectés : {len(speakers)} ({', '.join(sorted(speakers))})")
+    print(f"⏱️  Durée analysée : {result['segments'][-1]['end']:.0f}s")
 
-# =========================================================
-# VIDAGE VRAM — L'astuce critique avant Ollama
-# Libère les ~5-6GB pour que Qwen3.5:27b charge entièrement
-# =========================================================
-print("\n🧹 Libération de la VRAM pour Qwen3.5:27b...")
-del model, model_a, diarize_model, audio
-torch.cuda.empty_cache()
-gc.collect()
-print("   ✅ VRAM libérée.")
+    # =========================================================
+    # VIDAGE VRAM — libère les ~5-6GB pour que Qwen3.5:27b charge
+    # IMPORTANT : gc.collect() seul — torch.cuda.empty_cache()
+    # provoque un crash silencieux Windows après CTranslate2
+    # =========================================================
+    print("\n🧹 Libération de la VRAM pour Qwen3.5:27b...")
+    del model, model_a, diarize_model, audio
+    gc.collect()
+    print("   ✅ VRAM libérée.")
 
 # =========================================================
 # BLOC 2 — GÉNÉRATION LLM VIA OLLAMA (Qwen3.5:27b)
@@ -211,7 +227,7 @@ for seg in result["segments"]:
     transcript_text += f"[{ts}] {speaker} : {texte}\n"
 
 # ── TRONCATURE + MARQUEURS PRÉ-LLM ────────────────────────
-transcript_text = tronquer_transcript(transcript_text)
+transcript_text = tronquer_transcript(transcript_text, max_mots=99999)  # désactivé — qualité CR prioritaire
 
 marqueurs = calculer_marqueurs(transcript_text)
 marqueurs_texte = formater_marqueurs_pour_prompt(marqueurs)
@@ -296,9 +312,10 @@ try:
     with requests.post(
         OLLAMA_URL,
         json={
-            "model":  OLLAMA_MODEL,
-            "prompt": prompt,
-            "stream": True,   # Streaming — pas de timeout, écrit token par token
+            "model":      OLLAMA_MODEL,
+            "prompt":     prompt,
+            "stream":     True,       # Streaming — pas de timeout, écrit token par token
+            "keep_alive": 0,          # Libère la VRAM Qwen immédiatement après la réponse
             "options": {
                 "temperature":      0.6,
                 "top_p":            0.95,
@@ -322,21 +339,32 @@ try:
 
     if contenu:
 
-        # Séparation CR / Coaching en deux fichiers distincts
-        md_cr      = nom_base + "_Compte_Rendu.md"
+        md_cr       = nom_base + "_Compte_Rendu.md"
         md_coaching = nom_base + "_Coaching.md"
+        horodatage  = time.strftime('%d/%m/%Y à %H:%M')
+        nom_audio   = os.path.basename(fichier_audio)
 
-        # On sauvegarde le document complet dans les deux fichiers
-        # (split possible si tu veux séparer plus tard)
-        with open(md_cr, "w", encoding="utf-8") as f:
-            f.write(f"# Compte-Rendu — {os.path.basename(fichier_audio)}\n")
-            f.write(f"*Généré le {time.strftime('%d/%m/%Y à %H:%M')}*\n\n")
-            f.write(contenu)
+        # ── B1 : Split CR / Coaching ──────────────────────────
+        separateur = "## 🎯"
+        if separateur in contenu:
+            idx          = contenu.index(separateur)
+            partie_cr       = contenu[:idx].strip()
+            partie_coaching = contenu[idx:].strip()
+        else:
+            print("⚠️  Séparateur '## 🎯' non trouvé — fichiers identiques (fallback)")
+            partie_cr = partie_coaching = contenu
 
-        with open(md_coaching, "w", encoding="utf-8") as f:
-            f.write(f"# Analyse Coaching — {os.path.basename(fichier_audio)}\n")
-            f.write(f"*Généré le {time.strftime('%d/%m/%Y à %H:%M')}*\n\n")
-            f.write(contenu)
+        with open(md_cr, "w", encoding="utf-8-sig") as f:
+            f.write(f"# Compte-Rendu — {nom_audio}\n")
+            f.write(f"*Généré le {horodatage}*\n\n")
+            f.write(partie_cr)
+        print(f"📄 Compte-rendu : {md_cr}")
+
+        with open(md_coaching, "w", encoding="utf-8-sig") as f:
+            f.write(f"# Analyse Coaching — {nom_audio}\n")
+            f.write(f"*Généré le {horodatage}*\n\n")
+            f.write(partie_coaching)
+        print(f"🎯 Coaching     : {md_coaching}")
 
         duree_totale = time.time() - start_time
         print("\n" + "="*55)
