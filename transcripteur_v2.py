@@ -4,6 +4,7 @@ import time
 import json
 import gc
 import re
+import shutil
 import requests
 import torch
 import whisperx
@@ -28,6 +29,11 @@ COMPUTE_TYPE = "float16"
 BATCH_SIZE   = 16
 OLLAMA_URL   = "http://localhost:11434/api/generate"
 LANGUE       = "fr"   # Forcer le français — évite les erreurs d'alignement
+
+ROOT_DIR     = Path(__file__).parent
+INPUT_DIR    = ROOT_DIR / "input"
+SESSIONS_DIR = ROOT_DIR / "sessions"
+AUDIO_EXTS   = {".m4a", ".wav", ".mp3", ".flac", ".ogg"}
 
 # =========================================================
 # OPTIMISATION TOKENS — Phase 1 (24/03/2026)
@@ -138,12 +144,29 @@ print("🚀 PIPELINE SOTA — WhisperX + Qwen3.5 (100% Local)")
 print("=========================================================")
 
 
-# ── INPUT ─────────────────────────────────────────────────
-fichier_audio = input("\n📝 Glissez-déposez votre fichier audio ici : ").strip().strip('"').strip("'")
+# ── INPUT — auto-détection dans input/ ────────────────────
+INPUT_DIR.mkdir(exist_ok=True)
+audios = sorted(f for f in INPUT_DIR.iterdir() if f.suffix.lower() in AUDIO_EXTS)
 
-if not os.path.exists(fichier_audio):
-    print("❌ Fichier introuvable.")
-    sys.exit(1)
+if not audios:
+    print(f"\n❌ Aucun fichier audio dans input/")
+    print(f"   → Déposez un fichier .m4a / .wav / .mp3 dans :")
+    print(f"   {INPUT_DIR}")
+    sys.exit(0)
+
+if len(audios) == 1:
+    fichier_audio = str(audios[0])
+    print(f"\n🎵 Fichier détecté : {audios[0].name}")
+else:
+    print(f"\n⚠️  Plusieurs fichiers audio dans input/ :")
+    for i, f in enumerate(audios):
+        print(f"   [{i + 1}] {f.name}")
+    choix = input("Numéro du fichier à traiter : ").strip()
+    try:
+        fichier_audio = str(audios[int(choix) - 1])
+    except (ValueError, IndexError):
+        print("❌ Choix invalide.")
+        sys.exit(1)
 
 nom_base   = os.path.splitext(fichier_audio)[0]
 json_file  = nom_base + "_brut.json"
@@ -369,9 +392,16 @@ try:
         duree_totale = time.time() - start_time
         print("\n" + "="*55)
         print(f"✅ PIPELINE TERMINÉ en {duree_totale:.0f}s ({duree_totale/60:.1f} min)")
-        print(f"📊 JSON source     : {json_file}")
-        print(f"📄 Compte-rendu    : {md_cr}")
-        print(f"🎯 Coaching        : {md_coaching}")
+
+        # ── Archivage dans sessions/ ───────────────────────────
+        SESSIONS_DIR.mkdir(exist_ok=True)
+        print("\n📦 Archivage dans sessions/ :")
+        for src in [Path(fichier_audio), Path(json_file), Path(md_cr), Path(md_coaching)]:
+            if src.exists():
+                dst = SESSIONS_DIR / src.name
+                shutil.move(str(src), str(dst))
+                print(f"   ✅ {src.name}")
+
         print("="*55)
 
     else:
