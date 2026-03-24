@@ -31,6 +31,7 @@ Lancer        : lancer.bat ou python transcripteur.py
 | `TOKEN_RATIO = 1.3` dans config.py | Ratio mots→tokens FR |
 | Split CR/Coaching : regex `r'^#{1,3}\s+🎯'` | Robuste aux niveaux #/##/### |
 | `sessions/*_brut.json` intouchables | Rollback possible si régression |
+| `DiarizationPipeline(use_auth_token=HF_TOKEN)` | whisperx 3.7.2 interne attend `use_auth_token` — vérifier signature avant tout changement |
 
 ## Architecture modules
 ```
