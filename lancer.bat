@@ -2,21 +2,9 @@
 chcp 65001 >nul
 SET PYTHONIOENCODING=utf-8
 cd /d "%~dp0"
-echo.
-echo ============================================
-echo    IA-Audio -- Pipeline de transcription
-echo ============================================
-echo.
-echo Deposer un audio dans le dossier input/
-echo puis appuyer sur une touche pour lancer...
-echo.
-pause >nul
 venv-audio\Scripts\python.exe transcripteur.py
-echo.
-if %errorlevel% equ 0 (
-    echo Pipeline termine avec succes.
-) else (
+if %errorlevel% neq 0 (
+    echo.
     echo ERREUR -- voir message ci-dessus.
+    pause
 )
-echo.
-pause
