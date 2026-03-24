@@ -45,3 +45,32 @@ Données mesurées sur les JSON existants (reconstruction transcript identique a
 - [ ] `ollama list` → inventaire
 - [ ] Tester `mistral-small3.2` vs `Qwen3.5:27b` sur extrait APEC 1
 - [ ] Documenter dans `tasks/model_bench.md`
+
+---
+
+## Phase 3 — Refactoring modules (24/03/2026)
+
+### Découpage de transcripteur_v2.py (419 lignes)
+
+| Bloc | Lignes | Module |
+|------|--------|--------|
+| Imports + config + dirs | 1–36 | `config.py` |
+| `tronquer_transcript()` + markers | 45–139 | `markers.py` |
+| Prompt template (f-string) | 263–323 | `prompts.py` |
+| Appel Ollama streaming | 330–361 | `llm.py` |
+| Checkpoint B5 + pipeline WhisperX | 171–238 | `transcriber.py` |
+| Orchestration complète | 244–405 | `analyzer.py` |
+| Détection input/ + archivage sessions/ | 147–169, 396–405 | `transcripteur.py` |
+
+### Checklist modules
+- [x] `CLAUDE.md`
+- [x] `config.py`
+- [x] `llm.py`
+- [x] `markers.py`
+- [x] `prompts.py`
+- [x] `transcriber.py`
+- [x] `analyzer.py`
+- [x] `transcripteur.py`
+- [x] `analyser_seul.py`
+- [ ] Validation imports sans GPU
+- [ ] Test `analyser_seul.py` sur sessions/RDV APEC 1_brut.json
