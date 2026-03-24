@@ -36,9 +36,68 @@ def main():
             print("❌ Choix invalide.")
             sys.exit(1)
 
+    # ── Menu langue ───────────────────────────────────────────
+    print()
+    print("🌍 Langue de l'entretien ?")
+    print("   [1] 🇫🇷 Français (défaut)")
+    print("   [2] 🇬🇧 Anglais")
+    print("   [3] 🇪🇸 Espagnol")
+    print("   [4] Autre — saisir le code (ex: de, it, pt)")
+    choix_langue = input("   Choix [Entrée = 1] : ").strip()
+    if choix_langue == "2":
+        langue = "en"
+    elif choix_langue == "3":
+        langue = "es"
+    elif choix_langue == "4":
+        langue = input("   Code langue : ").strip() or "fr"
+    else:
+        langue = "fr"
+
+    # ── Menu speakers ─────────────────────────────────────────
+    print()
+    print("👥 Nombre de participants ?")
+    print("   [1] 2 personnes (entretien 1-to-1) (défaut)")
+    print("   [2] 3 personnes")
+    print("   [3] 4 personnes ou plus")
+    print("   [4] Je ne sais pas — auto-détection")
+    choix_speakers = input("   Choix [Entrée = 1] : ").strip()
+    if choix_speakers == "2":
+        min_speakers, max_speakers = 3, 3
+    elif choix_speakers == "3":
+        nb = input("   Nombre exact ou fourchette (ex: 4 ou 4-6) : ").strip()
+        if "-" in nb:
+            parts = nb.split("-")
+            min_speakers = int(parts[0].strip())
+            max_speakers = int(parts[1].strip())
+        else:
+            n = int(nb) if nb else 4
+            min_speakers, max_speakers = n, n
+    elif choix_speakers == "4":
+        min_speakers, max_speakers = None, None
+    else:
+        min_speakers, max_speakers = 2, 2
+
+    # ── Résumé avant lancement ────────────────────────────────
+    print()
+    print("─" * 45)
+    speakers_label = f"{min_speakers} speakers" if min_speakers else "auto"
+    print(f"   🌍 Langue   : {langue}")
+    print(f"   👥 Speakers : {speakers_label}")
+    print("─" * 45)
+    confirm = input("   Lancer ? [Entrée = oui] : ").strip()
+    if confirm.lower() in ("n", "non", "no"):
+        print("Annulé.")
+        sys.exit(0)
+    print()
+
     # ── Pipeline complet ──────────────────────────────────────
     try:
-        path_cr, path_coaching = analyser_audio(str(fichier_audio))
+        path_cr, path_coaching = analyser_audio(
+            str(fichier_audio),
+            langue=langue,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
+        )
     except ConnectionError as e:
         print(e)
         print("   → Vérifie que l'icône Ollama est dans la barre des tâches Windows.")

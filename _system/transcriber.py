@@ -13,7 +13,10 @@ from config import (
 )
 
 
-def transcrire(audio_path: str) -> list:
+def transcrire(audio_path: str,
+               langue: str = "fr",
+               min_speakers: int = None,
+               max_speakers: int = None) -> list:
     """
     Transcrit un fichier audio. Retourne la liste des segments.
     Skip WhisperX si _brut.json existe déjà (checkpoint B5).
@@ -38,7 +41,7 @@ def transcrire(audio_path: str) -> list:
     print(f"\n🧠 [1/3] Transcription WhisperX ({WHISPER_MODEL})...")
     model = whisperx.load_model(WHISPER_MODEL, DEVICE, compute_type=WHISPER_COMPUTE_TYPE)
     audio = whisperx.load_audio(audio_path)
-    result = model.transcribe(audio, batch_size=WHISPER_BATCH_SIZE, language=WHISPER_LANGUAGE)
+    result = model.transcribe(audio, batch_size=WHISPER_BATCH_SIZE, language=langue or WHISPER_LANGUAGE)
     print(f"   ✅ Transcription : {time.time()-t0:.1f}s — langue {result['language']} — {len(result['segments'])} segments")
 
     # ── 2/3 : ALIGNEMENT MOT PAR MOT ─────────────────────────
@@ -57,7 +60,12 @@ def transcrire(audio_path: str) -> list:
     t2 = time.time()
     print("👥 [3/3] Diarisation Pyannote (speaker-diarization-3.1)...")
     diarize_model    = DiarizationPipeline(use_auth_token=HF_TOKEN, device=DEVICE)
-    diarize_segments = diarize_model(audio)
+    diarize_kwargs = {}
+    if min_speakers is not None:
+        diarize_kwargs["min_speakers"] = min_speakers
+    if max_speakers is not None:
+        diarize_kwargs["max_speakers"] = max_speakers
+    diarize_segments = diarize_model(audio, **diarize_kwargs)
     print("🔗 Fusion transcription + locuteurs...")
     result   = whisperx.assign_word_speakers(diarize_segments, result)
     segments = result["segments"]

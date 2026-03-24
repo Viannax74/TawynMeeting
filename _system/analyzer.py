@@ -62,7 +62,10 @@ def ecrire_rapports(nom_base: str, nom_audio: str,
 
 # ── Pipeline principal ──────────────────────────────────────────────────────
 
-def analyser_audio(audio_path: str) -> tuple:
+def analyser_audio(audio_path: str,
+                   langue: str = "fr",
+                   min_speakers: int = None,
+                   max_speakers: int = None) -> tuple:
     """
     Pipeline complet : transcription → marqueurs → prompt → LLM → rapports.
     Retourne (path_cr, path_coaching).
@@ -78,7 +81,12 @@ def analyser_audio(audio_path: str) -> tuple:
 
     try:
         # 1. Transcription (avec checkpoint B5)
-        segments = transcriber.transcrire(audio_path)
+        segments = transcriber.transcrire(
+            audio_path,
+            langue=langue,
+            min_speakers=min_speakers,
+            max_speakers=max_speakers,
+        )
 
         # 2. Reconstruction transcript
         transcript_text = reconstituer_transcript(segments)
