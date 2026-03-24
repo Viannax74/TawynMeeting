@@ -6,10 +6,11 @@ import json
 import time
 from pathlib import Path
 
-from config import OLLAMA_MODEL
+from config import OLLAMA_MODEL, TOKEN_RATIO
 from markers import tronquer_transcript, calculer_marqueurs, formater_marqueurs_pour_prompt
 from prompts import construire_prompt
 from llm import appeler_ollama
+from analyzer import reconstituer_transcript, split_cr_coaching, ecrire_rapports
 
 
 def main():
@@ -43,12 +44,7 @@ def main():
     print(f"⏱️  Durée analysée : {segments[-1].get('end', 0):.0f}s")
 
     # ── Reconstruction transcript ─────────────────────────────
-    transcript_text = ""
-    for seg in segments:
-        speaker = seg.get("speaker", "INCONNU")
-        texte   = seg.get("text", "").strip()
-        ts      = f"{seg.get('start', 0):.1f}s"
-        transcript_text += f"[{ts}] {speaker} : {texte}\n"
+    transcript_text = reconstituer_transcript(segments)
 
     # ── Troncature (désactivée par défaut) ────────────────────
     transcript_text = tronquer_transcript(transcript_text, max_mots=99999)
@@ -58,11 +54,11 @@ def main():
     marqueurs_texte = formater_marqueurs_pour_prompt(m)
     print(f"📊 Marqueurs : {m['total_fillers']} fillers "
           f"({m['ratio_fillers_pct']}%/discours), assertivité {m['score_assertivite']}/10")
-    print(f"📏 Transcript : {m['total_mots']} mots / ~{int(m['total_mots'] * 1.3)} tokens estimés")
+    print(f"📏 Transcript : {m['total_mots']} mots / ~{int(m['total_mots'] * TOKEN_RATIO)} tokens estimés")
 
     # ── Prompt + appel LLM ────────────────────────────────────
     prompt = construire_prompt(transcript_text, marqueurs_texte)
-    print(f"📏 Prompt final : {len(prompt.split())} mots / ~{len(prompt.split()) * 1.3:.0f} tokens estimés")
+    print(f"📏 Prompt final : {len(prompt.split())} mots / ~{len(prompt.split()) * TOKEN_RATIO:.0f} tokens estimés")
     print(f"\n🤖 Modèle : {OLLAMA_MODEL}")
     print("🤖 Analyse LLM en cours...")
     print("   (Première exécution : ~60s le temps de charger le modèle)")
@@ -84,37 +80,13 @@ def main():
         print("❌ Génération vide — Ollama a répondu mais sans contenu.")
         sys.exit(1)
 
-    # ── Split CR / Coaching — regex robuste aux variations de niveau de titre (#, ##, ###)
-    import re as _re
-    m = _re.search(r'^#{1,3}\s+🎯', contenu, _re.MULTILINE)
-    if m:
-        idx             = m.start()
-        partie_cr       = contenu[:idx].strip()
-        partie_coaching = contenu[idx:].strip()
-    else:
-        print("⚠️  Séparateur '🎯' non trouvé — fichiers identiques (fallback)")
-        partie_cr = partie_coaching = contenu
+    # ── Split CR / Coaching ───────────────────────────────────
+    partie_cr, partie_coaching = split_cr_coaching(contenu)
 
     # ── Écriture rapports (à côté du JSON source) ─────────────
-    import os
-    horodatage = time.strftime('%d/%m/%Y à %H:%M')
-    nom_audio  = json_path.name.replace("_brut.json", "")
-    base       = str(json_path).replace("_brut.json", "")
-
-    path_cr       = base + "_Compte_Rendu.md"
-    path_coaching = base + "_Coaching.md"
-
-    with open(path_cr, "w", encoding="utf-8-sig") as f:
-        f.write(f"# Compte-Rendu — {nom_audio}\n")
-        f.write(f"*Généré le {horodatage} (re-analyse)*\n\n")
-        f.write(partie_cr)
-    print(f"📄 Compte-rendu : {path_cr}")
-
-    with open(path_coaching, "w", encoding="utf-8-sig") as f:
-        f.write(f"# Analyse Coaching — {nom_audio}\n")
-        f.write(f"*Généré le {horodatage} (re-analyse)*\n\n")
-        f.write(partie_coaching)
-    print(f"🎯 Coaching     : {path_coaching}")
+    nom_audio = json_path.name.replace("_brut.json", "")
+    nom_base  = str(json_path).replace("_brut.json", "")
+    ecrire_rapports(nom_base, nom_audio, partie_cr, partie_coaching, suffix=" (re-analyse)")
 
     duree = time.time() - start_time
     print(f"\n✅ Re-analyse terminée en {duree:.0f}s ({duree/60:.1f} min)")

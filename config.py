@@ -30,6 +30,9 @@ OLLAMA_OPTIONS = {
     "num_ctx":          NUM_CTX,
 }
 
+# ── Estimation tokens ─────────────────────────────────────
+TOKEN_RATIO = 1.3  # mots → tokens estimés (français)
+
 # ── Dossiers ──────────────────────────────────────────────
 INPUT_DIR    = BASE_DIR / "input"
 SESSIONS_DIR = BASE_DIR / "sessions"
