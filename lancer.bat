@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+SET PYTHONIOENCODING=utf-8
 cd /d "%~dp0"
 echo.
 echo ============================================

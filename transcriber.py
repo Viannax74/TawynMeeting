@@ -5,8 +5,6 @@ from pathlib import Path
 
 import whisperx
 from whisperx.diarize import DiarizationPipeline
-import torchaudio
-torchaudio.set_audio_backend("soundfile")  # Fallback anti-torchcodec Windows
 
 from config import (
     HF_TOKEN, WHISPER_MODEL, WHISPER_LANGUAGE,

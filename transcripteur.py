@@ -3,13 +3,13 @@ import sys
 import shutil
 from pathlib import Path
 
-from config import INPUT_DIR, SESSIONS_DIR, AUDIO_EXTS
+from config import INPUT_DIR, SESSIONS_DIR, AUDIO_EXTS, OLLAMA_MODEL
 from analyzer import analyser_audio
 
 
 def main():
     print("=========================================================")
-    print("🚀 PIPELINE SOTA — WhisperX + Qwen3.5 (100% Local)")
+    print(f"🚀 PIPELINE SOTA — WhisperX + {OLLAMA_MODEL} (100% Local)")
     print("=========================================================")
 
     # ── Détection fichier audio dans input/ ───────────────────
