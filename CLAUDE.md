@@ -11,7 +11,7 @@ Dossier local : `C:\IA\IA-Audio`
 ```
 Transcription : WhisperX large-v3 (CUDA float16, batch_size=16)
 Diarisation   : Pyannote.audio 3.4.0 (HF_TOKEN requis dans .env)
-LLM           : Ollama local (modèle dans .env → OLLAMA_MODEL)
+LLM           : Ollama local · mistral-small3.2 (modèle dans .env → OLLAMA_MODEL)
 Marqueurs     : markers.py (regex pure Python, <5ms, zéro LLM)
 Lancer        : lancer.bat ou python transcripteur.py
 ```
