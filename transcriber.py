@@ -53,7 +53,7 @@ def transcrire(audio_path: str) -> list:
 
     # ── 3/3 : DIARISATION ────────────────────────────────────
     print("👥 [3/3] Identification des locuteurs (Pyannote)...")
-    diarize_model    = DiarizationPipeline(token=HF_TOKEN, device=DEVICE)
+    diarize_model    = DiarizationPipeline(use_auth_token=HF_TOKEN, device=DEVICE)
     diarize_segments = diarize_model(audio)
     print("🔗 Fusion transcription + locuteurs...")
     result   = whisperx.assign_word_speakers(diarize_segments, result)
