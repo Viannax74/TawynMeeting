@@ -8,7 +8,8 @@ import transcriber
 from markers import tronquer_transcript, calculer_marqueurs, formater_marqueurs_pour_prompt
 from prompts import construire_prompt
 from llm import appeler_ollama
-from config import TOKEN_RATIO, REPORT_DIR
+from config import TOKEN_RATIO, REPORT_DIR, BASE_DIR, OLLAMA_MODEL
+from monitor import HardwareMonitor
 
 
 # ── Fonctions utilitaires partagées ────────────────────────────────────────
@@ -66,46 +67,64 @@ def analyser_audio(audio_path: str) -> tuple:
     Pipeline complet : transcription → marqueurs → prompt → LLM → rapports.
     Retourne (path_cr, path_coaching).
     """
-    start_time = time.time()
+    run_start  = time.time()
     audio_path = str(audio_path)
     nom_base   = str(Path(audio_path).with_suffix(""))
 
-    # 1. Transcription (avec checkpoint B5)
-    segments = transcriber.transcrire(audio_path)
+    # ── Démarrer le monitor hardware ─────────────────────────
+    log_path = BASE_DIR / "tasks" / "hardware_last_run.log"
+    monitor  = HardwareMonitor(str(log_path), interval=5.0)
+    monitor.start()
 
-    # 2. Reconstruction transcript
-    transcript_text = reconstituer_transcript(segments)
+    try:
+        # 1. Transcription (avec checkpoint B5)
+        segments = transcriber.transcrire(audio_path)
 
-    # 3. Troncature (désactivée par défaut — qualité CR prioritaire)
-    transcript_text = tronquer_transcript(transcript_text, max_mots=99999)
+        # 2. Reconstruction transcript
+        transcript_text = reconstituer_transcript(segments)
 
-    # 4. Marqueurs pré-LLM
-    m = calculer_marqueurs(transcript_text)
-    marqueurs_texte = formater_marqueurs_pour_prompt(m)
-    print(f"📊 Marqueurs : {m['total_fillers']} fillers "
-          f"({m['ratio_fillers_pct']}%/discours), assertivité {m['score_assertivite']}/10")
-    print(f"📏 Transcript : {m['total_mots']} mots / ~{int(m['total_mots'] * TOKEN_RATIO)} tokens estimés")
+        # 3. Troncature (désactivée par défaut — qualité CR prioritaire)
+        transcript_text = tronquer_transcript(transcript_text, max_mots=99999)
 
-    # 5. Prompt + appel LLM
-    prompt = construire_prompt(transcript_text, marqueurs_texte)
-    print(f"📏 Prompt final : {len(prompt.split())} mots / ~{len(prompt.split()) * TOKEN_RATIO:.0f} tokens estimés")
-    print("\n🤖 Analyse LLM en cours...")
-    print("   (Première exécution : ~60s le temps de charger le modèle)")
-    contenu = appeler_ollama(prompt)
+        # 4. Marqueurs pré-LLM
+        m = calculer_marqueurs(transcript_text)
+        marqueurs_texte = formater_marqueurs_pour_prompt(m)
+        print(f"📊 Marqueurs : {m['total_fillers']} fillers "
+              f"({m['ratio_fillers_pct']}%/discours), assertivité {m['score_assertivite']}/10")
+        print(f"📏 Transcript : {m['total_mots']} mots / ~{int(m['total_mots'] * TOKEN_RATIO)} tokens estimés")
 
-    if not contenu:
-        raise RuntimeError("❌ Génération vide — Ollama a répondu mais sans contenu.")
+        # 5. Prompt + appel LLM
+        prompt = construire_prompt(transcript_text, marqueurs_texte)
+        print(f"📏 Prompt final : {len(prompt.split())} mots / ~{len(prompt.split()) * TOKEN_RATIO:.0f} tokens estimés")
+        t_llm = time.time()
+        print(f"\n🤖 Appel LLM — modèle : {OLLAMA_MODEL}")
+        print("   (Première exécution : ~60s le temps de charger le modèle)")
+        contenu = appeler_ollama(prompt)
+        duree_llm = time.time() - t_llm
 
-    # 6. Split CR / Coaching
-    partie_cr, partie_coaching = split_cr_coaching(contenu)
+        if not contenu:
+            raise RuntimeError("❌ Génération vide — Ollama a répondu mais sans contenu.")
 
-    # 7. Écriture rapports (dans reports/)
-    REPORT_DIR.mkdir(exist_ok=True)
-    nom_audio   = os.path.basename(audio_path)
-    report_base = str(REPORT_DIR / Path(audio_path).stem)
-    path_cr, path_coaching = ecrire_rapports(report_base, nom_audio, partie_cr, partie_coaching)
+        print(f"   ✅ LLM : {duree_llm:.0f}s — {len(contenu)} caractères générés")
 
-    duree = time.time() - start_time
-    print(f"\n✅ Pipeline terminé en {duree:.0f}s ({duree/60:.1f} min)")
+        # 6. Split CR / Coaching
+        partie_cr, partie_coaching = split_cr_coaching(contenu)
 
-    return path_cr, path_coaching
+        # 7. Écriture rapports (dans reports/)
+        REPORT_DIR.mkdir(exist_ok=True)
+        nom_audio   = os.path.basename(audio_path)
+        report_base = str(REPORT_DIR / Path(audio_path).stem)
+        path_cr, path_coaching = ecrire_rapports(report_base, nom_audio, partie_cr, partie_coaching)
+
+        duree_totale = time.time() - run_start
+        print(f"\n{'='*55}")
+        print(f"✅ PIPELINE TERMINÉ en {duree_totale:.0f}s ({duree_totale/60:.1f} min)")
+        print(f"   📄 CR       : {path_cr}")
+        print(f"   🎯 Coaching : {path_coaching}")
+        print(f"   📊 Hardware : tasks/hardware_last_run.log")
+        print(f"{'='*55}")
+
+        return path_cr, path_coaching
+
+    finally:
+        monitor.stop()

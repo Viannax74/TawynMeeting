@@ -6,3 +6,4 @@ test/
 __pycache__/
 *.pyc
 _system/transcripteur_v2.py
+tasks/*.log

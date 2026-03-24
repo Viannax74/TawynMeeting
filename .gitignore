@@ -13,6 +13,9 @@ reports/
 # Backup
 _system/transcripteur_v2.py
 
+# Logs hardware (générés à chaque run)
+tasks/*.log
+
 # Env
 .env
 

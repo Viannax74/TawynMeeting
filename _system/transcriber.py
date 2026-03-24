@@ -1,6 +1,7 @@
 """Pipeline WhisperX + Pyannote — transcription + diarisation."""
 import gc
 import json
+import time
 from pathlib import Path
 
 import whisperx
@@ -33,14 +34,16 @@ def transcrire(audio_path: str) -> list:
         return segments
 
     # ── 1/3 : TRANSCRIPTION ───────────────────────────────────
-    print("\n🧠 [1/3] Transcription en cours...")
+    t0 = time.time()
+    print(f"\n🧠 [1/3] Transcription WhisperX ({WHISPER_MODEL})...")
     model = whisperx.load_model(WHISPER_MODEL, DEVICE, compute_type=WHISPER_COMPUTE_TYPE)
     audio = whisperx.load_audio(audio_path)
     result = model.transcribe(audio, batch_size=WHISPER_BATCH_SIZE, language=WHISPER_LANGUAGE)
-    print(f"   ✅ Langue détectée : {result['language']} — {len(result['segments'])} segments")
+    print(f"   ✅ Transcription : {time.time()-t0:.1f}s — langue {result['language']} — {len(result['segments'])} segments")
 
     # ── 2/3 : ALIGNEMENT MOT PAR MOT ─────────────────────────
-    print("⏱️  [2/3] Alignement chirurgical mot par mot...")
+    t1 = time.time()
+    print("⏱️  [2/3] Alignement mot par mot...")
     model_a, metadata = whisperx.load_align_model(
         language_code=result["language"], device=DEVICE
     )
@@ -48,14 +51,18 @@ def transcrire(audio_path: str) -> list:
         result["segments"], model_a, metadata, audio, DEVICE,
         return_char_alignments=False
     )
+    print(f"   ✅ Alignement : {time.time()-t1:.1f}s")
 
     # ── 3/3 : DIARISATION ────────────────────────────────────
-    print("👥 [3/3] Identification des locuteurs (Pyannote)...")
+    t2 = time.time()
+    print("👥 [3/3] Diarisation Pyannote (speaker-diarization-3.1)...")
     diarize_model    = DiarizationPipeline(use_auth_token=HF_TOKEN, device=DEVICE)
     diarize_segments = diarize_model(audio)
     print("🔗 Fusion transcription + locuteurs...")
     result   = whisperx.assign_word_speakers(diarize_segments, result)
     segments = result["segments"]
+    n_speakers = len({seg.get("speaker", "") for seg in segments if seg.get("speaker")})
+    print(f"   ✅ Diarisation : {time.time()-t2:.1f}s — {n_speakers} speaker(s)")
 
     # ── EXPORT JSON "SOURCE DE VÉRITÉ" ────────────────────────
     with open(json_path, "w", encoding="utf-8-sig") as f:
@@ -66,6 +73,7 @@ def transcrire(audio_path: str) -> list:
     speakers = {seg.get("speaker", "") for seg in segments if seg.get("speaker")}
     print(f"📊 Locuteurs détectés : {len(speakers)} ({', '.join(sorted(speakers))})")
     print(f"⏱️  Durée analysée : {segments[-1]['end']:.0f}s")
+    print(f"⏱️  Étapes WhisperX total : {time.time()-t0:.1f}s")
 
     # ── LIBÉRATION VRAM ───────────────────────────────────────
     # gc.collect() seul — torch.cuda.empty_cache() crash silencieux après CTranslate2
