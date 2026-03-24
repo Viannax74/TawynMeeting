@@ -84,14 +84,15 @@ def main():
         print("❌ Génération vide — Ollama a répondu mais sans contenu.")
         sys.exit(1)
 
-    # ── Split CR / Coaching ───────────────────────────────────
-    separateur = "## 🎯"
-    if separateur in contenu:
-        idx             = contenu.index(separateur)
+    # ── Split CR / Coaching — regex robuste aux variations de niveau de titre (#, ##, ###)
+    import re as _re
+    m = _re.search(r'^#{1,3}\s+🎯', contenu, _re.MULTILINE)
+    if m:
+        idx             = m.start()
         partie_cr       = contenu[:idx].strip()
         partie_coaching = contenu[idx:].strip()
     else:
-        print("⚠️  Séparateur '## 🎯' non trouvé — fichiers identiques (fallback)")
+        print("⚠️  Séparateur '🎯' non trouvé — fichiers identiques (fallback)")
         partie_cr = partie_coaching = contenu
 
     # ── Écriture rapports (à côté du JSON source) ─────────────

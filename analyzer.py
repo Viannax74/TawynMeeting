@@ -49,14 +49,15 @@ def analyser_audio(audio_path: str) -> tuple:
     if not contenu:
         raise RuntimeError("❌ Génération vide — Ollama a répondu mais sans contenu.")
 
-    # 6. Split CR / Coaching
-    separateur = "## 🎯"
-    if separateur in contenu:
-        idx             = contenu.index(separateur)
+    # 6. Split CR / Coaching — regex robuste aux variations de niveau de titre (#, ##, ###)
+    import re as _re
+    m = _re.search(r'^#{1,3}\s+🎯', contenu, _re.MULTILINE)
+    if m:
+        idx             = m.start()
         partie_cr       = contenu[:idx].strip()
         partie_coaching = contenu[idx:].strip()
     else:
-        print("⚠️  Séparateur '## 🎯' non trouvé — fichiers identiques (fallback)")
+        print("⚠️  Séparateur '🎯' non trouvé — fichiers identiques (fallback)")
         partie_cr = partie_coaching = contenu
 
     # 7. Écriture rapports

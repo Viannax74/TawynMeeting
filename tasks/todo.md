@@ -72,5 +72,38 @@ Données mesurées sur les JSON existants (reconstruction transcript identique a
 - [x] `analyzer.py`
 - [x] `transcripteur.py`
 - [x] `analyser_seul.py`
-- [ ] Validation imports sans GPU
+- [x] Validation imports sans GPU
 - [ ] Test `analyser_seul.py` sur sessions/RDV APEC 1_brut.json
+
+---
+
+## Diagnostic venv (24/03/2026)
+
+### Problèmes détectés et corrigés
+
+| Problème | Impact | Fix appliqué |
+|----------|--------|--------------|
+| `numpy 2.0.2` avec torch 2.1.2 | Warnings `_ARRAY_API`, crashes potentiels | `pip install "numpy<2"` → numpy 1.26.4 |
+| `transformers 5.3.0` exige torch>=2.4 | `is_torch_available()=False` → alignement WhisperX impossible | `pip install "transformers==4.48.3"` |
+| `torchaudio 2.2+` supprime `AudioMetaData` | crash pyannote à l'import | torch+torchaudio 2.1.2+cu121 déjà installé |
+
+### Stack validé (24/03/2026)
+
+| Package | Version | Statut |
+|---------|---------|--------|
+| torch | 2.1.2+cu121 | ✅ CUDA=True, GPU=RTX A4500 |
+| torchaudio | 2.1.2+cu121 | ✅ |
+| numpy | 1.26.4 | ✅ |
+| transformers | 4.48.3 | ✅ is_torch_available()=True |
+| whisperx | 3.7.2 | ✅ import OK |
+| pyannote.audio | 3.4.0 | ✅ import OK |
+| faster-whisper | 1.2.1 | ✅ |
+| ctranslate2 | 4.7.1 | ✅ |
+
+> Note : whisperx 3.7.2 affiche un warning pip (requires torch>=2.7.1) mais fonctionne avec 2.1.2.
+> Ce warning est géré par pip, pas par Python runtime. Ne pas upgrader torch (casserait torchaudio/pyannote).
+
+### Test pipeline réel
+- [ ] Lancer `python transcripteur.py` avec RDV APEC 2 + JSON (checkpoint B5)
+- [ ] Vérifier CR et Coaching différents
+- [ ] `pip freeze > requirements.txt` + commit
