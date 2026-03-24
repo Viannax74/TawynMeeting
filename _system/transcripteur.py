@@ -52,18 +52,20 @@ def main():
         print(f"\n❌ Erreur inattendue : {e}")
         sys.exit(1)
 
-    # ── Archivage dans sessions/ ──────────────────────────────
+    # ── Archivage dans meetings/ (audio + JSON brut) ─────────
     SESSIONS_DIR.mkdir(exist_ok=True)
     nom_base  = str(fichier_audio.with_suffix(""))
     json_file = nom_base + "_brut.json"
 
-    print("\n📦 Archivage dans sessions/ :")
-    for src in [fichier_audio, Path(json_file), Path(path_cr), Path(path_coaching)]:
+    print("\n📦 Archivage dans meetings/ :")
+    for src in [fichier_audio, Path(json_file)]:
         src = Path(src)
         if src.exists():
             dst = SESSIONS_DIR / src.name
             shutil.move(str(src), str(dst))
             print(f"   ✅ {src.name}")
+    print(f"   📄 {Path(path_cr).name} → reports/")
+    print(f"   🎯 {Path(path_coaching).name} → reports/")
 
     print("=" * 55)
 

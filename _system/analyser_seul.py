@@ -1,12 +1,12 @@
 """Re-analyse LLM sur _brut.json existant — sans re-transcrire.
-Usage : python analyser_seul.py sessions/X_brut.json
+Usage : python analyser_seul.py meetings/X_brut.json
 """
 import sys
 import json
 import time
 from pathlib import Path
 
-from config import OLLAMA_MODEL, TOKEN_RATIO
+from config import OLLAMA_MODEL, TOKEN_RATIO, REPORT_DIR
 from markers import tronquer_transcript, calculer_marqueurs, formater_marqueurs_pour_prompt
 from prompts import construire_prompt
 from llm import appeler_ollama
@@ -20,7 +20,7 @@ def main():
 
     if len(sys.argv) < 2:
         print("\nUsage : python analyser_seul.py <fichier_brut.json>")
-        print("Exemple : python analyser_seul.py sessions/RDV_APEC_1_brut.json")
+        print("Exemple : python analyser_seul.py meetings/RDV_APEC_1_brut.json")
         sys.exit(1)
 
     json_path = Path(sys.argv[1])
@@ -83,9 +83,10 @@ def main():
     # ── Split CR / Coaching ───────────────────────────────────
     partie_cr, partie_coaching = split_cr_coaching(contenu)
 
-    # ── Écriture rapports (à côté du JSON source) ─────────────
+    # ── Écriture rapports dans reports/ ───────────────────────
+    REPORT_DIR.mkdir(exist_ok=True)
     nom_audio = json_path.name.replace("_brut.json", "")
-    nom_base  = str(json_path).replace("_brut.json", "")
+    nom_base  = str(REPORT_DIR / json_path.stem.replace("_brut", ""))
     ecrire_rapports(nom_base, nom_audio, partie_cr, partie_coaching, suffix=" (re-analyse)")
 
     duree = time.time() - start_time

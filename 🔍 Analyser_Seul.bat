@@ -1,5 +1,5 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >/dev/null
 SET PYTHONIOENCODING=utf-8
 cd /d "%~dp0"
 if "%~1"=="" (
@@ -7,7 +7,7 @@ if "%~1"=="" (
 ) else (
     set JSON_PATH=%~1
 )
-venv-audio\Scripts\python.exe analyser_seul.py "%JSON_PATH%"
+_system\venv-audio\Scripts\python.exe _system\analyser_seul.py "%JSON_PATH%"
 if %errorlevel% neq 0 (
     echo.
     echo ERREUR -- voir message ci-dessus.

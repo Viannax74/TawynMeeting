@@ -8,7 +8,7 @@ import transcriber
 from markers import tronquer_transcript, calculer_marqueurs, formater_marqueurs_pour_prompt
 from prompts import construire_prompt
 from llm import appeler_ollama
-from config import TOKEN_RATIO
+from config import TOKEN_RATIO, REPORT_DIR
 
 
 # ── Fonctions utilitaires partagées ────────────────────────────────────────
@@ -99,9 +99,11 @@ def analyser_audio(audio_path: str) -> tuple:
     # 6. Split CR / Coaching
     partie_cr, partie_coaching = split_cr_coaching(contenu)
 
-    # 7. Écriture rapports
-    nom_audio = os.path.basename(audio_path)
-    path_cr, path_coaching = ecrire_rapports(nom_base, nom_audio, partie_cr, partie_coaching)
+    # 7. Écriture rapports (dans reports/)
+    REPORT_DIR.mkdir(exist_ok=True)
+    nom_audio   = os.path.basename(audio_path)
+    report_base = str(REPORT_DIR / Path(audio_path).stem)
+    path_cr, path_coaching = ecrire_rapports(report_base, nom_audio, partie_cr, partie_coaching)
 
     duree = time.time() - start_time
     print(f"\n✅ Pipeline terminé en {duree:.0f}s ({duree/60:.1f} min)")

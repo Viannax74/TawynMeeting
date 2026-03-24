@@ -1,9 +1,20 @@
-.env
+# Python
 __pycache__/
-*.pyc
-venv-audio/
+*.py[cod]
 
-# Données de sessions (audio, JSON, rapports) — ne pas versionner
-input/
-sessions/
-test/
+# Venv
+_system/venv-audio/
+
+# Données (privacy)
+inbox/
+meetings/
+reports/
+
+# Backup
+_system/transcripteur_v2.py
+
+# Env
+.env
+
+# Claude Code
+.claude/

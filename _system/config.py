@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).parent  # zéro chemin hardcodé
+BASE_DIR = Path(__file__).parent.parent  # remonte de _system/ vers la racine
 
 # ── Tokens & modèles ──────────────────────────────────────
 HF_TOKEN       = os.getenv("HF_TOKEN", "")
@@ -34,6 +34,7 @@ OLLAMA_OPTIONS = {
 TOKEN_RATIO = 1.3  # mots → tokens estimés (français)
 
 # ── Dossiers ──────────────────────────────────────────────
-INPUT_DIR    = BASE_DIR / "input"
-SESSIONS_DIR = BASE_DIR / "sessions"
+INPUT_DIR    = BASE_DIR / "inbox"
+SESSIONS_DIR = BASE_DIR / "meetings"
+REPORT_DIR   = BASE_DIR / "reports"
 AUDIO_EXTS   = {".m4a", ".wav", ".mp3", ".flac", ".ogg"}

@@ -1,8 +1,8 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >/dev/null
 SET PYTHONIOENCODING=utf-8
 cd /d "%~dp0"
-venv-audio\Scripts\python.exe transcripteur.py
+_system\venv-audio\Scripts\python.exe _system\transcripteur.py
 if %errorlevel% neq 0 (
     echo.
     echo ERREUR -- voir message ci-dessus.
