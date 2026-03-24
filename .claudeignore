@@ -1,0 +1,15 @@
+# Données de production — ne jamais charger dans le contexte
+sessions/
+input/
+test/
+
+# Environnement virtuel
+venv-audio/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Backup
+transcripteur_v2.py
