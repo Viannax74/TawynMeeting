@@ -16,6 +16,10 @@ _system/transcripteur_v2.py
 # Logs hardware (générés à chaque run)
 tasks/*.log
 
+# Benchmark — données d'entretiens + rapports non versionnés
+tasks/benchmark_outputs/
+tasks/benchmark_*.md
+
 # Env
 .env
 
