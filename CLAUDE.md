@@ -11,7 +11,8 @@ Dossier local : `C:\IA\IA-Audio`
 ```
 Transcription : WhisperX large-v3 (CUDA float16, batch_size=16)
 Diarisation   : Pyannote.audio 3.4.0 (HF_TOKEN requis dans .env)
-LLM           : Ollama local · mistral-small3.2 (modèle dans .env → OLLAMA_MODEL)
+LLM           : Ollama local · qwen3.5:35b-a3b (modèle dans .env → OLLAMA_MODEL)
+Fallback       : gemma3:12b (1.3 min, qualité correcte)
 Marqueurs     : markers.py (regex pure Python, <5ms, zéro LLM)
 Lancer        : 🎙️ Lancer_Meeting.bat ou _system\venv-audio\Scripts\python.exe _system\transcripteur.py
 ```
@@ -31,6 +32,7 @@ Lancer        : 🎙️ Lancer_Meeting.bat ou _system\venv-audio\Scripts\python.
 | Split CR/Coaching : regex `r'^#{1,3}\s+🎯'` | Robuste aux niveaux #/##/### |
 | `meetings/*_brut.json` intouchables | Rollback possible si régression |
 | `DiarizationPipeline(use_auth_token=HF_TOKEN)` | whisperx 3.7.2 interne — vérifier signature avant changement |
+| Modèle actuel : `qwen3.5:35b-a3b` (MoE 35B/3B actifs, ~12 min, validé benchmark 24/03/2026) | Meilleure qualité — gemma3:12b en fallback rapide (1.3 min) |
 
 ## Structure des fichiers
 ```
@@ -72,14 +74,18 @@ analyser_seul.py → markers, prompts, llm, config
 
 ## Tags Git de stabilité
 ```
-v1.1-stable ← mistral-small3.2 validé, pipeline 2.1 min (CURRENT)
+v1.5-stable ← qwen3.5:35b-a3b validé benchmark — qualité > mistral-small3.2 (CURRENT)
+v1.4-stable ← menus langue + speakers — qualité diarisation contrôlée
+v1.3-stable ← monitoring hardware + timing + fenêtre persistante
+v1.2-stable ← structure dossiers TawynJournaling (_system/ inbox/ meetings/ reports/)
+v1.1-stable ← mistral-small3.2 validé, pipeline 2.1 min
 v1.0-stable ← structure modules refactorisés
 e6fa592     ← venv stabilisé, pipeline validé
 ```
 
 ## Rollback urgence
 ```bash
-git checkout v1.1-stable  # dernier état stable pipeline validé
+git checkout v1.5-stable  # dernier état stable pipeline validé
 ```
 
 ## Dossiers à ignorer
